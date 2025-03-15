@@ -1,0 +1,190 @@
+/* General Styles */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #212529;
+    color: #f1f1f1;
+}
+
+/* Custom Logo Styling */
+.logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    letter-spacing: 1px;
+    font-size: 1.5rem;
+    color: #ffffff;
+    text-shadow: 0 0 5px rgba(132, 0, 255, 0.5);
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.logo-text .shield-icon {
+    color: #9c27b0;
+    margin-right: 8px;
+}
+
+.logo-text span.highlight {
+    color: #9c27b0;
+}
+
+/* Dashboard Cards */
+.stat-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    background-color: #343a40;
+    border: 1px solid #454d55;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Database Explorer */
+.db-structure-container {
+    max-height: 700px;
+    overflow-y: auto;
+    border-radius: 5px;
+    border: 1px solid #454d55;
+    background-color: #2c3035;
+}
+
+.table-item {
+    cursor: pointer;
+    border-left: 3px solid transparent;
+}
+
+.table-item:hover {
+    border-left-color: #9c27b0;
+    background-color: rgba(156, 39, 176, 0.1);
+}
+
+.table-name {
+    cursor: pointer;
+}
+
+.column-name {
+    font-family: 'Courier New', monospace;
+}
+
+/* Query Editor */
+.CodeMirror {
+    height: 200px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+/* Results Table */
+.table-responsive {
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+#resultsTable {
+    margin-bottom: 0;
+}
+
+#resultsTable th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+th.sortable {
+    cursor: pointer;
+}
+
+th.sortable:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+th.sort-asc .fa-sort-asc,
+th.sort-desc .fa-sort-desc {
+    opacity: 1;
+}
+
+/* For fixed height scrolling tables */
+.scrollable-table {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Loading indicator */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Master reference tables */
+.master-section {
+    background-color: #2c3035;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #343a40;
+}
+
+.master-table {
+    background-color: #343a40;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Rules and Mapping Configuration */
+.rule-item, .mapping-item {
+    border-left: 3px solid #6c757d;
+    transition: border-color 0.3s ease;
+    background-color: #343a40;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.rule-item:hover, .mapping-item:hover {
+    border-left-color: #9c27b0;
+}
+
+/* Process logs */
+.log-success {
+    border-left: 3px solid #28a745;
+}
+
+.log-failed {
+    border-left: 3px solid #dc3545;
+}
+
+.log-running {
+    border-left: 3px solid #ffc107;
+}
+
+/* Utility classes */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.font-monospace {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Form styles */
+.form-label {
+    font-weight: 500;
+}

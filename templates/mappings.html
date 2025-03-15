@@ -1,0 +1,245 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    {% if add_mode %}
+                    Add Table Mapping
+                    {% else %}
+                    Table Mappings
+                    {% endif %}
+                </h4>
+                {% if not add_mode %}
+                <a href="{{ url_for('add_mapping') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add Mapping
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if add_mode %}
+                <!-- Mapping Form -->
+                <form method="post" action="{{ url_for('add_mapping') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Mapping Name</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       placeholder="Patient to Encounters Mapping" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="db_connection_id" class="form-label">Database Connection</label>
+                                <select class="form-select" id="db_connection_id" name="db_connection_id" required>
+                                    <option value="">Select Database Connection</option>
+                                    {% for conn in connections %}
+                                    <option value="{{ conn.id }}">{{ conn.name }} ({{ conn.db_type }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="source_table" class="form-label">Source Table</label>
+                                <select class="form-select" id="source_table" name="source_table" required>
+                                    <option value="">Select a table</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="destination_table" class="form-label">Destination Table</label>
+                                <select class="form-select" id="destination_table" name="destination_table" required>
+                                    <option value="">Select a table</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="join_key" class="form-label">Join Key Field</label>
+                                <select class="form-select" id="join_key" name="join_key" required>
+                                    <option value="">Select a field</option>
+                                </select>
+                                <small class="form-text text-muted">Field that exists in both tables for joining</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 d-flex justify-content-between">
+                        <a href="{{ url_for('mappings') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Mapping
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <!-- Mapping List -->
+                {% if mappings %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Database</th>
+                                <th>Source Table</th>
+                                <th>Destination Table</th>
+                                <th>Join Key</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mapping in mappings %}
+                            <tr>
+                                <td>{{ mapping.name }}</td>
+                                <td>{{ mapping.db_connection.name }}</td>
+                                <td>{{ mapping.source_table }}</td>
+                                <td>{{ mapping.destination_table }}</td>
+                                <td>{{ mapping.join_key }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteMappingModal{{ mapping.id }}">
+                                        <i class="fas fa-trash me-1"></i> Delete
+                                    </button>
+                                    
+                                    <!-- Delete Modal -->
+                                    <div class="modal fade" id="deleteMappingModal{{ mapping.id }}" tabindex="-1" aria-labelledby="deleteMappingModalLabel{{ mapping.id }}" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteMappingModalLabel{{ mapping.id }}">Confirm Deletion</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete the mapping "{{ mapping.name }}"?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form action="{{ url_for('delete_mapping', mapping_id=mapping.id) }}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No table mappings configured yet. <a href="{{ url_for('add_mapping') }}" class="alert-link">Add your first mapping</a>.
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Handle database connection change
+        $('#db_connection_id').change(function() {
+            var connId = $(this).val();
+            if (!connId) {
+                // Clear tables and fields
+                $('#source_table').html('<option value="">Select a table</option>');
+                $('#destination_table').html('<option value="">Select a table</option>');
+                $('#join_key').html('<option value="">Select a field</option>');
+                return;
+            }
+            
+            // Get tables for the selected connection
+            $.get('{{ url_for("get_tables", conn_id=0) }}'.replace('0', connId), function(data) {
+                if (data.success) {
+                    // Populate table dropdowns
+                    var optionsHtml = '<option value="">Select a table</option>';
+                    data.tables.forEach(function(table) {
+                        optionsHtml += '<option value="' + table + '">' + table + '</option>';
+                    });
+                    
+                    $('#source_table').html(optionsHtml);
+                    $('#destination_table').html(optionsHtml);
+                } else {
+                    alert('Error fetching tables: ' + data.message);
+                }
+            }).fail(function(xhr, status, error) {
+                alert('Error: ' + error);
+            });
+        });
+        
+        // Handle source table change
+        $('#source_table').change(updateJoinKeyOptions);
+        
+        // Handle destination table change
+        $('#destination_table').change(updateJoinKeyOptions);
+        
+        // Function to update join key options
+        function updateJoinKeyOptions() {
+            var connId = $('#db_connection_id').val();
+            var sourceTable = $('#source_table').val();
+            var destTable = $('#destination_table').val();
+            
+            if (!connId || !sourceTable || !destTable) {
+                $('#join_key').html('<option value="">Select a field</option>');
+                return;
+            }
+            
+            // Get columns for source table
+            $.get('{{ url_for("get_columns", conn_id=0, table_name="table") }}'
+                  .replace('0', connId)
+                  .replace('table', sourceTable), 
+                function(sourceData) {
+                    if (sourceData.success) {
+                        // Get columns for destination table
+                        $.get('{{ url_for("get_columns", conn_id=0, table_name="table") }}'
+                              .replace('0', connId)
+                              .replace('table', destTable), 
+                            function(destData) {
+                                if (destData.success) {
+                                    // Find common columns
+                                    var sourceColumns = sourceData.columns;
+                                    var destColumns = destData.columns;
+                                    var commonColumns = sourceColumns.filter(function(col) {
+                                        return destColumns.includes(col);
+                                    });
+                                    
+                                    // Populate join key dropdown
+                                    var optionsHtml = '<option value="">Select a field</option>';
+                                    commonColumns.forEach(function(col) {
+                                        optionsHtml += '<option value="' + col + '">' + col + '</option>';
+                                    });
+                                    
+                                    $('#join_key').html(optionsHtml);
+                                } else {
+                                    alert('Error fetching destination table columns: ' + destData.message);
+                                }
+                            }).fail(function(xhr, status, error) {
+                                alert('Error: ' + error);
+                            });
+                    } else {
+                        alert('Error fetching source table columns: ' + sourceData.message);
+                    }
+                }).fail(function(xhr, status, error) {
+                    alert('Error: ' + error);
+                });
+        }
+    });
+</script>
+{% endblock %}

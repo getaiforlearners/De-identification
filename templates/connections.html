@@ -1,0 +1,315 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    {% if add_mode %}
+                    Add Database Connection
+                    {% elif edit_mode %}
+                    Edit Database Connection
+                    {% else %}
+                    Database Connections
+                    {% endif %}
+                </h4>
+                {% if not add_mode and not edit_mode %}
+                <a href="{{ url_for('add_connection') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add Connection
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if add_mode or edit_mode %}
+                <!-- Connection Form -->
+                <form method="post" action="{{ url_for('add_connection') if add_mode else url_for('edit_connection', conn_id=connection.id) }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Connection Name</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       placeholder="My Database" required
+                                       value="{{ connection.name if edit_mode else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="db_type" class="form-label">Database Type</label>
+                                <select class="form-select" id="db_type" name="db_type" required>
+                                    <option value="">Select Type</option>
+                                    <option value="mysql" {% if edit_mode and connection.db_type == 'mysql' %}selected{% endif %}>MySQL</option>
+                                    <option value="postgresql" {% if edit_mode and connection.db_type == 'postgresql' %}selected{% endif %}>PostgreSQL</option>
+                                    <option value="sqlserver" {% if edit_mode and connection.db_type == 'sqlserver' %}selected{% endif %}>SQL Server</option>
+                                    <option value="oracle" {% if edit_mode and connection.db_type == 'oracle' %}selected{% endif %}>Oracle</option>
+                                    <option value="sqlite" {% if edit_mode and connection.db_type == 'sqlite' %}selected{% endif %}>SQLite</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Oracle-specific fields -->
+                    <div id="oracle-fields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="service_name" class="form-label">Service Name</label>
+                            <input type="text" class="form-control" id="service_name" name="service_name" 
+                                   placeholder="Oracle service name">
+                            <div class="form-text">The Oracle service name (default is the database name if not specified)</div>
+                        </div>
+                    </div>
+
+                    <!-- SQLite-specific fields -->
+                    <div id="sqlite-fields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="db_path" class="form-label">Database File Path</label>
+                            <input type="text" class="form-control" id="db_path" name="db_path" 
+                                   placeholder="/path/to/database.db">
+                            <div class="form-text">Full path to the SQLite database file</div>
+                        </div>
+                    </div>
+
+
+                    <div class="row mb-3">
+                        <div class="col-md-6 standard-fields">
+                            <div class="mb-3">
+                                <label for="host" class="form-label">Host</label>
+                                <input type="text" class="form-control standard-fields" id="host" name="host" 
+                                       placeholder="localhost or IP address" required
+                                       value="{{ connection.host if edit_mode else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6 standard-fields">
+                            <div class="mb-3">
+                                <label for="port" class="form-label">Port</label>
+                                <input type="number" class="form-control standard-fields" id="port" name="port" 
+                                       placeholder="3306, 5432, or 1433" required
+                                       value="{{ connection.port if edit_mode else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12 standard-fields">
+                            <div class="mb-3">
+                                <label for="database" class="form-label">Database Name</label>
+                                <input type="text" class="form-control standard-fields" id="database" name="database" 
+                                       placeholder="Database name" required
+                                       value="{{ connection.database if edit_mode else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6 standard-fields">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control standard-fields" id="username" name="username" 
+                                       placeholder="Database username" required
+                                       value="{{ connection.username if edit_mode else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6 standard-fields">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control standard-fields" id="password" name="password" 
+                                       placeholder="{% if edit_mode %}Leave blank to keep current password{% else %}Database password{% endif %}"
+                                       {% if not edit_mode %}required{% endif %}>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 d-flex justify-content-between">
+                        <a href="{{ url_for('connections') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if add_mode %}
+                            <i class="fas fa-save me-1"></i> Save Connection
+                            {% else %}
+                            <i class="fas fa-save me-1"></i> Update Connection
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <!-- Connection List -->
+                {% if connections %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Host</th>
+                                <th>Database</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for conn in connections %}
+                            <tr>
+                                <td>{{ conn.name }}</td>
+                                <td>
+                                    {% if conn.db_type == 'mysql' %}
+                                    <span class="badge bg-info">MySQL</span>
+                                    {% elif conn.db_type == 'postgresql' %}
+                                    <span class="badge bg-primary">PostgreSQL</span>
+                                    {% elif conn.db_type == 'sqlserver' %}
+                                    <span class="badge bg-secondary">SQL Server</span>
+                                    {% elif conn.db_type == 'oracle' %}
+                                    <span class="badge bg-warning">Oracle</span>
+                                    {% elif conn.db_type == 'sqlite' %}
+                                    <span class="badge bg-light">SQLite</span>
+                                    {% else %}
+                                    <span class="badge bg-light">{{ conn.db_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ conn.host }}:{{ conn.port }}</td>
+                                <td>{{ conn.database }}</td>
+                                <td>{{ conn.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-info test-connection" data-conn-id="{{ conn.id }}">
+                                            <i class="fas fa-check-circle me-1"></i> Test
+                                        </button>
+                                        <a href="{{ url_for('edit_connection', conn_id=conn.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit me-1"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ conn.id }}">
+                                            <i class="fas fa-trash me-1"></i> Delete
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Modal -->
+                                    <div class="modal fade" id="deleteModal{{ conn.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ conn.id }}" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteModalLabel{{ conn.id }}">Confirm Deletion</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete the connection "{{ conn.name }}"?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form action="{{ url_for('delete_connection', conn_id=conn.id) }}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No database connections configured yet. <a href="{{ url_for('add_connection') }}" class="alert-link">Add your first connection</a>.
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connection Test Result Modal -->
+<div class="modal fade" id="testResultModal" tabindex="-1" aria-labelledby="testResultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="testResultModalLabel">Connection Test Result</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="test-result-content">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Testing connection...</span>
+                        </div>
+                        <span class="ms-2">Testing connection...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('db_type').addEventListener('change', function() {
+    const oracleFields = document.getElementById('oracle-fields');
+    const sqliteFields = document.getElementById('sqlite-fields');
+    const standardFields = document.querySelectorAll('.standard-fields');
+
+    oracleFields.style.display = this.value === 'oracle' ? 'block' : 'none';
+    sqliteFields.style.display = this.value === 'sqlite' ? 'block' : 'none';
+
+    standardFields.forEach(field => {
+        field.style.display = this.value === 'sqlite' ? 'none' : 'block';
+    });
+});
+    $(document).ready(function() {
+        // Test connection button click handler
+        $('.test-connection').click(function() {
+            var connId = $(this).data('conn-id');
+            $('#testResultModal').modal('show');
+            
+            // Reset modal content
+            $('#test-result-content').html(`
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Testing connection...</span>
+                    </div>
+                    <span class="ms-2">Testing connection...</span>
+                </div>
+            `);
+            
+            // Make AJAX request to test connection
+            $.get('{{ url_for("test_connection", conn_id=0) }}'.replace('0', connId), function(data) {
+                if (data.success) {
+                    // Connection successful
+                    var tableHtml = '';
+                    if (data.tables && data.tables.length > 0) {
+                        tableHtml = '<h6 class="mt-3">Available Tables:</h6>';
+                        tableHtml += '<ul class="list-group">';
+                        data.tables.forEach(function(table) {
+                            tableHtml += '<li class="list-group-item">' + table + '</li>';
+                        });
+                        tableHtml += '</ul>';
+                    }
+                    
+                    $('#test-result-content').html(`
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i> ${data.message}
+                        </div>
+                        ${tableHtml}
+                    `);
+                } else {
+                    // Connection failed
+                    $('#test-result-content').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i> ${data.message}
+                        </div>
+                    `);
+                }
+            }).fail(function(xhr, status, error) {
+                // Request failed
+                $('#test-result-content').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i> Connection test failed: ${error}
+                    </div>
+                `);
+            });
+        });
+    });
+</script>
+{% endblock %}

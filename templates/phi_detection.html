@@ -1,0 +1,456 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 mb-4">
+            <i class="fas fa-shield-alt me-2"></i>
+            NoTraceHealth PHI Detection
+        </h1>
+        <p class="text-muted">
+            Detect and manage Protected Health Information (PHI) in your database tables.
+            Analyze content, generate de-identification plans, and protect sensitive data.
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Database Selection -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">Detection Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="connectionSelect" class="form-label">Select Connection:</label>
+                    <select class="form-select" id="connectionSelect">
+                        <option value="">Choose a connection...</option>
+                        {% for conn in connections %}
+                        <option value="{{ conn.id }}">{{ conn.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="tableSelect" class="form-label">Select Table:</label>
+                    <select class="form-select" id="tableSelect" disabled>
+                        <option value="">Choose a table...</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="columnSelect" class="form-label">Select Columns:</label>
+                    <select class="form-select" id="columnSelect" multiple disabled>
+                        <option value="">Loading columns...</option>
+                    </select>
+                    <div class="form-text">Hold Ctrl/Cmd to select multiple columns</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label d-block">Detection Mode:</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="detectionMode" id="patternMode" value="pattern" checked>
+                        <label class="btn btn-outline-primary" for="patternMode">
+                            <i class="fas fa-search me-1"></i> Pattern-based
+                        </label>
+                        <input type="radio" class="btn-check" name="detectionMode" id="aiMode" value="ai">
+                        <label class="btn btn-outline-primary" for="aiMode">
+                            <i class="fas fa-brain me-1"></i> AI-powered
+                        </label>
+                    </div>
+                </div>
+                <button class="btn btn-primary w-100" id="analyzeBtn" disabled>
+                    <i class="fas fa-search me-2"></i> Analyze PHI
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Results -->
+    <div class="col-md-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">PHI Analysis Results</h5>
+            </div>
+            <div class="card-body">
+                <div id="loadingResults" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing database content...</p>
+                </div>
+                <div id="noResults" class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Select database connection, table, and columns to begin PHI analysis.</p>
+                </div>
+                <div id="resultsContainer" style="display: none;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- De-identification Plan Modal -->
+<div class="modal fade" id="planModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">De-identification Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="planContainer">
+                    <!-- Plan will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="executePlanBtn">Execute Plan</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const connectionSelect = $('#connectionSelect');
+    const tableSelect = $('#tableSelect');
+    const columnSelect = $('#columnSelect');
+    const analyzeBtn = $('#analyzeBtn');
+    const loadingResults = $('#loadingResults');
+    const noResults = $('#noResults');
+    const resultsContainer = $('#resultsContainer');
+    const planModal = $('#planModal');
+    const planContainer = $('#planContainer');
+    const executePlanBtn = $('#executePlanBtn');
+
+    let currentAnalysis = null;
+    let currentPlan = null;
+
+    // Handle connection selection
+    connectionSelect.change(function() {
+        const connId = $(this).val();
+        if (connId) {
+            // Reset dependent fields
+            tableSelect.prop('disabled', true)
+                .empty()
+                .append('<option value="">Loading tables...</option>');
+            columnSelect.prop('disabled', true)
+                .empty()
+                .append('<option value="">Select table first...</option>');
+            analyzeBtn.prop('disabled', true);
+
+            // Get tables for selected connection
+            $.get(`/api/explorer/structure/${connId}`, function(response) {
+                if (response.success) {
+                    tableSelect.empty()
+                        .append('<option value="">Choose a table...</option>');
+
+                    response.tables.forEach(table => {
+                        tableSelect.append(`<option value="${table.name}">${table.name}</option>`);
+                    });
+
+                    tableSelect.prop('disabled', false);
+                } else {
+                    showError('Error loading tables: ' + response.message);
+                }
+            });
+        } else {
+            resetSelections();
+        }
+    });
+
+    // Handle table selection
+    tableSelect.change(function() {
+        const connId = connectionSelect.val();
+        const tableName = $(this).val();
+
+        if (connId && tableName) {
+            // Reset columns
+            columnSelect.prop('disabled', true)
+                .empty()
+                .append('<option value="">Loading columns...</option>');
+            analyzeBtn.prop('disabled', true);
+
+            // Get columns for selected table
+            $.get(`/api/explorer/structure/${connId}`, function(response) {
+                if (response.success) {
+                    const table = response.tables.find(t => t.name === tableName);
+                    if (table) {
+                        columnSelect.empty();
+                        table.columns.forEach(column => {
+                            columnSelect.append(`<option value="${column.name}">${column.name}</option>`);
+                        });
+                        columnSelect.prop('disabled', false);
+                    }
+                } else {
+                    showError('Error loading columns: ' + response.message);
+                }
+            });
+        } else {
+            columnSelect.prop('disabled', true)
+                .empty()
+                .append('<option value="">Select table first...</option>');
+            analyzeBtn.prop('disabled', true);
+        }
+    });
+
+    // Handle column selection
+    columnSelect.change(function() {
+        analyzeBtn.prop('disabled', $(this).val() === null || $(this).val().length === 0);
+    });
+
+    // Handle analyze button click
+    analyzeBtn.click(function() {
+        const connId = connectionSelect.val();
+        const tableName = tableSelect.val();
+        const selectedColumns = $(columnSelect).val();
+        const detectionMode = $('input[name="detectionMode"]:checked').val();
+
+        if (!connId || !tableName || !selectedColumns || selectedColumns.length === 0) return;
+
+        // Show loading state
+        loadingResults.show();
+        noResults.hide();
+        resultsContainer.hide();
+
+        // Perform PHI analysis
+        $.ajax({
+            url: '/api/phi/analyze',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                connection_id: connId,
+                table_name: tableName,
+                columns: selectedColumns,
+                detection_mode: detectionMode
+            }),
+            success: function(response) {
+                if (response.success) {
+                    currentAnalysis = response.analysis;
+                    displayAnalysisResults(response.analysis, detectionMode);
+                } else {
+                    showError('Analysis failed: ' + response.error);
+                }
+            },
+            error: function(xhr) {
+                showError('Error performing analysis: ' + xhr.responseText);
+            },
+            complete: function() {
+                loadingResults.hide();
+            }
+        });
+    });
+
+    // Display analysis results
+    function displayAnalysisResults(analysis, detectionMode) {
+        resultsContainer.empty();
+
+        if (analysis.columns && analysis.columns.length > 0) {
+            const html = `
+                <h6 class="mb-3">
+                    PHI Detection Results for Table: ${analysis.table_name}
+                    <span class="badge bg-info ms-2">
+                        ${detectionMode === 'ai' ? 'AI-Powered' : 'Pattern-Based'} Detection
+                    </span>
+                </h6>
+                ${analysis.columns.map(column => `
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">${column.name}</h6>
+                                <span class="badge bg-primary">${column.type}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h6>Detected PHI Types:</h6>
+                            <ul class="list-unstyled">
+                                ${column.analysis.phi_types.map(phi => `
+                                    <li class="mb-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>
+                                                <i class="fas fa-shield-alt me-2"></i>
+                                                ${phi.type}
+                                                ${phi.source === 'ai' ? 
+                                                    '<span class="badge bg-info ms-2">AI Detected</span>' : 
+                                                    '<span class="badge bg-secondary ms-2">Pattern Match</span>'
+                                                }
+                                            </span>
+                                            <span class="badge bg-info">
+                                                ${(phi.frequency * 100).toFixed(1)}% of records
+                                            </span>
+                                        </div>
+                                        <div class="small text-muted">
+                                            Confidence: ${(phi.avg_confidence * 100).toFixed(1)}%
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `).join('')}
+                <button class="btn btn-primary mt-3" id="generatePlanBtn">
+                    <i class="fas fa-magic me-2"></i> Generate De-identification Plan
+                </button>
+            `;
+
+            resultsContainer.html(html).show();
+            noResults.hide();
+
+            // Handle generate plan button click
+            $('#generatePlanBtn').click(function() {
+                generateDeidentificationPlan(analysis);
+            });
+        } else {
+            resultsContainer.html(`
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No PHI detected in the selected columns.
+                </div>
+            `).show();
+            noResults.hide();
+        }
+    }
+
+    // Generate de-identification plan
+    function generateDeidentificationPlan(analysis) {
+        $.ajax({
+            url: '/api/phi/suggest-plan',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ analysis: analysis }),
+            success: function(response) {
+                if (response.success) {
+                    currentPlan = response.plan;
+                    displayDeidentificationPlan(response.plan);
+                    planModal.modal('show');
+                } else {
+                    showError('Failed to generate plan: ' + response.error);
+                }
+            },
+            error: function(xhr) {
+                showError('Error generating plan: ' + xhr.responseText);
+            }
+        });
+    }
+
+    // Display de-identification plan
+    function displayDeidentificationPlan(plan) {
+        const html = `
+            <h6 class="mb-3">De-identification Plan for Table: ${plan.table_name}</h6>
+            ${plan.columns.map(column => `
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">${column.name}</h6>
+                    </div>
+                    <div class="card-body">
+                        <h6>Detected PHI:</h6>
+                        <ul class="list-unstyled mb-3">
+                            ${column.detected_phi.map(phi => `
+                                <li>
+                                    <i class="fas fa-shield-alt me-2"></i>
+                                    ${phi.type}
+                                    <span class="text-muted">
+                                        (${(phi.frequency * 100).toFixed(1)}% confidence)
+                                    </span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <h6>Suggested Actions:</h6>
+                        <ul class="list-unstyled">
+                            ${column.suggested_actions.map(action => `
+                                <li class="mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="action_${column.name}"
+                                               value="${action.method}"
+                                               id="${column.name}_${action.method}">
+                                        <label class="form-check-label"
+                                               for="${column.name}_${action.method}">
+                                            ${action.description}
+                                        </label>
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `).join('')}
+        `;
+
+        planContainer.html(html);
+    }
+
+    // Handle execute plan button click
+    executePlanBtn.click(function() {
+        const connId = connectionSelect.val();
+        if (!connId || !currentPlan) return;
+
+        // Show loading state
+        executePlanBtn.prop('disabled', true)
+            .html('<span class="spinner-border spinner-border-sm me-2"></span>Executing...');
+
+        // Execute the plan
+        $.ajax({
+            url: '/api/phi/execute-plan',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                connection_id: connId,
+                plan: currentPlan
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showSuccess('De-identification completed successfully!');
+                    planModal.modal('hide');
+                } else {
+                    showError('Failed to execute plan: ' + response.error);
+                }
+            },
+            error: function(xhr) {
+                showError('Error executing plan: ' + xhr.responseText);
+            },
+            complete: function() {
+                executePlanBtn.prop('disabled', false)
+                    .html('Execute Plan');
+            }
+        });
+    });
+
+    // Utility function to reset selections
+    function resetSelections() {
+        tableSelect.prop('disabled', true)
+            .empty()
+            .append('<option value="">Choose a table...</option>');
+        columnSelect.prop('disabled', true)
+            .empty()
+            .append('<option value="">Select table first...</option>');
+        analyzeBtn.prop('disabled', true);
+    }
+
+    // Utility functions
+    function showError(message) {
+        resultsContainer.html(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                ${message}
+            </div>
+        `).show();
+        noResults.hide();
+        loadingResults.hide();
+    }
+
+    function showSuccess(message) {
+        resultsContainer.html(`
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                ${message}
+            </div>
+        `).show();
+        noResults.hide();
+        loadingResults.hide();
+    }
+});
+</script>
+{% endblock %}

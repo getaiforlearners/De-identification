@@ -1,0 +1,412 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-key me-2"></i>
+                    {% if add_mode %}
+                    Add De-identification Rule
+                    {% elif edit_mode %}
+                    Edit De-identification Rule
+                    {% else %}
+                    De-identification Rules
+                    {% endif %}
+                </h4>
+                {% if not add_mode and not edit_mode %}
+                <a href="{{ url_for('add_rule') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add Rule
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if add_mode or edit_mode %}
+                <!-- Rule Form -->
+                <form method="post" action="{{ url_for('add_rule') if add_mode else url_for('edit_rule', rule_id=rule.id) }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Rule Name</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       placeholder="Patient ID Transformation" required
+                                       value="{{ rule.name if edit_mode else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="rule_type" class="form-label">Rule Type</label>
+                                <select class="form-select" id="rule_type" name="rule_type" required
+                                        {% if edit_mode %}disabled{% endif %}>
+                                    <option value="">Select Type</option>
+                                    <option value="patient_id" {% if edit_mode and rule.rule_type == 'patient_id' %}selected{% endif %}>Patient ID</option>
+                                    <option value="date_offset" {% if edit_mode and rule.rule_type == 'date_offset' %}selected{% endif %}>Date Offset</option>
+                                    <option value="date_generalization" {% if edit_mode and rule.rule_type == 'date_generalization' %}selected{% endif %}>Date Generalization</option>
+                                    <option value="phone_mask" {% if edit_mode and rule.rule_type == 'phone_mask' %}selected{% endif %}>Phone Number</option>
+                                    <option value="email_mask" {% if edit_mode and rule.rule_type == 'email_mask' %}selected{% endif %}>Email Address</option>
+                                    <option value="text_redaction" {% if edit_mode and rule.rule_type == 'text_redaction' %}selected{% endif %}>Text Redaction</option>
+                                    <option value="fixed_value" {% if edit_mode and rule.rule_type == 'fixed_value' %}selected{% endif %}>Fixed Value</option>
+                                    <option value="hash" {% if edit_mode and rule.rule_type == 'hash' %}selected{% endif %}>Hash Value</option>
+                                    <option value="random_value" {% if edit_mode and rule.rule_type == 'random_value' %}selected{% endif %}>Random Value</option>
+                                    <option value="zipcode_truncate" {% if edit_mode and rule.rule_type == 'zipcode_truncate' %}selected{% endif %}>ZIP Code Truncation</option>
+                                </select>
+                                {% if edit_mode %}
+                                <input type="hidden" name="rule_type" value="{{ rule.rule_type }}">
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2" 
+                               placeholder="Rule description">{{ rule.description if edit_mode else '' }}</textarea>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tables" class="form-label">Table Patterns (comma separated)</label>
+                                <input type="text" class="form-control" id="tables" name="tables" 
+                                       placeholder=".*patient.*, .*visit.*" 
+                                       value="{{ rule.get_config().tables|join(',') if edit_mode else '.*' }}">
+                                <small class="form-text text-muted">Regular expressions to match table names</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="columns" class="form-label">Column Patterns (comma separated)</label>
+                                <input type="text" class="form-control" id="columns" name="columns" 
+                                       placeholder=".*id.*, .*patient_id.*" 
+                                       value="{{ rule.get_config().columns|join(',') if edit_mode else '.*' }}">
+                                <small class="form-text text-muted">Regular expressions to match column names</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Patient ID Configuration -->
+                    <div id="patient_id_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Patient ID Configuration</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="prefix" class="form-label">ID Prefix</label>
+                                    <input type="text" class="form-control" id="prefix" name="prefix" 
+                                           placeholder="P" 
+                                           value="{{ rule.get_config().prefix if edit_mode and rule.rule_type == 'patient_id' else 'P' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="format" class="form-label">ID Format</label>
+                                    <input type="text" class="form-control" id="format" name="format" 
+                                           placeholder="{}{:07d}"
+                                           value="{{ rule.get_config().format if edit_mode and rule.rule_type == 'patient_id' else '{}{:07d}' }}">
+                                    <small class="form-text text-muted">Python format string - {} will be replaced with prefix and number</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Offset Configuration -->
+                    <div id="date_offset_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Date Offset Configuration</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="min_days" class="form-label">Min Days Offset</label>
+                                    <input type="number" class="form-control" id="min_days" name="min_days" 
+                                           placeholder="-30" 
+                                           value="{{ rule.get_config().min_days if edit_mode and rule.rule_type == 'date_offset' else '-30' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="max_days" class="form-label">Max Days Offset</label>
+                                    <input type="number" class="form-control" id="max_days" name="max_days" 
+                                           placeholder="30"
+                                           value="{{ rule.get_config().max_days if edit_mode and rule.rule_type == 'date_offset' else '30' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="seed" class="form-label">Random Seed</label>
+                                    <input type="number" class="form-control" id="seed" name="seed" 
+                                           placeholder="42"
+                                           value="{{ rule.get_config().seed if edit_mode and rule.rule_type == 'date_offset' else '42' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Generalization Configuration -->
+                    <div id="date_generalization_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Date Generalization Configuration</h5>
+                        <div class="mb-3">
+                            <label for="level" class="form-label">Generalization Level</label>
+                            <select class="form-select" id="level" name="level">
+                                <option value="year" {% if edit_mode and rule.rule_type == 'date_generalization' and rule.get_config().level == 'year' %}selected{% endif %}>Year (Jan 1)</option>
+                                <option value="month" {% if edit_mode and rule.rule_type == 'date_generalization' and rule.get_config().level == 'month' %}selected{% endif %}>Month (First day of month)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Phone Mask Configuration -->
+                    <div id="phone_mask_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Phone Number Masking Configuration</h5>
+                        <div class="mb-3">
+                            <label for="pattern" class="form-label">Phone Mask Pattern</label>
+                            <input type="text" class="form-control" id="pattern" name="pattern" 
+                                   placeholder="XXX-XXX-{last4}"
+                                   value="{{ rule.get_config().pattern if edit_mode and rule.rule_type == 'phone_mask' else 'XXX-XXX-{last4}' }}">
+                            <small class="form-text text-muted">{last4} will be replaced with last 4 digits</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Email Mask Configuration -->
+                    <div id="email_mask_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Email Address Masking Configuration</h5>
+                        <div class="mb-3">
+                            <label for="mode" class="form-label">Email Mask Mode</label>
+                            <select class="form-select" id="mode" name="mode">
+                                <option value="preserve_domain" {% if edit_mode and rule.rule_type == 'email_mask' and rule.get_config().mode == 'preserve_domain' %}selected{% endif %}>Preserve Domain</option>
+                                <option value="full_mask" {% if edit_mode and rule.rule_type == 'email_mask' and rule.get_config().mode == 'full_mask' %}selected{% endif %}>Full Masking</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Text Redaction Configuration -->
+                    <div id="text_redaction_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Text Redaction Configuration</h5>
+                        <div class="mb-3">
+                            <label for="patterns" class="form-label">Patterns to Redact (comma separated)</label>
+                            <input type="text" class="form-control" id="patterns" name="patterns" 
+                                   placeholder="\b\d{3}-\d{2}-\d{4}\b"
+                                   value="{{ rule.get_config().patterns|join(',') if edit_mode and rule.rule_type == 'text_redaction' else '\b\d{3}-\d{2}-\d{4}\b' }}">
+                            <small class="form-text text-muted">Regular expressions to match text to redact</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="replacement" class="form-label">Replacement Text</label>
+                            <input type="text" class="form-control" id="replacement" name="replacement" 
+                                   placeholder="[REDACTED]"
+                                   value="{{ rule.get_config().replacement if edit_mode and rule.rule_type == 'text_redaction' else '[REDACTED]' }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Fixed Value Configuration -->
+                    <div id="fixed_value_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Fixed Value Configuration</h5>
+                        <div class="mb-3">
+                            <label for="value" class="form-label">Fixed Value</label>
+                            <input type="text" class="form-control" id="value" name="value" 
+                                   placeholder="[REDACTED]"
+                                   value="{{ rule.get_config().value if edit_mode and rule.rule_type == 'fixed_value' else '[REDACTED]' }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Hash Configuration -->
+                    <div id="hash_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Hash Value Configuration</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="salt" class="form-label">Salt</label>
+                                    <input type="text" class="form-control" id="salt" name="salt" 
+                                           placeholder="deidentification"
+                                           value="{{ rule.get_config().salt if edit_mode and rule.rule_type == 'hash' else 'deidentification' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="length" class="form-label">Hash Length</label>
+                                    <input type="number" class="form-control" id="length" name="length" 
+                                           placeholder="8" min="1" max="32"
+                                           value="{{ rule.get_config().length if edit_mode and rule.rule_type == 'hash' else '8' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Random Value Configuration -->
+                    <div id="random_value_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">Random Value Configuration</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="seed" class="form-label">Random Seed</label>
+                                    <input type="number" class="form-control" id="seed" name="seed" 
+                                           placeholder="42"
+                                           value="{{ rule.get_config().seed if edit_mode and rule.rule_type == 'random_value' else '42' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="min_val" class="form-label">Min Value</label>
+                                    <input type="number" class="form-control" id="min_val" name="min_val" 
+                                           placeholder="0"
+                                           value="{{ rule.get_config().min_val if edit_mode and rule.rule_type == 'random_value' else '0' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="max_val" class="form-label">Max Value</label>
+                                    <input type="number" class="form-control" id="max_val" name="max_val" 
+                                           placeholder="1000"
+                                           value="{{ rule.get_config().max_val if edit_mode and rule.rule_type == 'random_value' else '1000' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ZIP Code Configuration -->
+                    <div id="zipcode_truncate_config" class="rule-config" style="display:none;">
+                        <h5 class="mb-3">ZIP Code Truncation Configuration</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> 
+                            ZIP codes will be truncated to the first 3 digits followed by XX (e.g., 12345 → 123XX)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 d-flex justify-content-between">
+                        <a href="{{ url_for('rules') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if add_mode %}
+                            <i class="fas fa-save me-1"></i> Save Rule
+                            {% else %}
+                            <i class="fas fa-save me-1"></i> Update Rule
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <!-- Rule List -->
+                {% if rules %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Tables</th>
+                                <th>Columns</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rule in rules %}
+                            <tr>
+                                <td>{{ rule.name }}</td>
+                                <td>
+                                    {% if rule.rule_type == 'patient_id' %}
+                                    <span class="badge bg-primary">Patient ID</span>
+                                    {% elif rule.rule_type == 'date_offset' %}
+                                    <span class="badge bg-info">Date Offset</span>
+                                    {% elif rule.rule_type == 'date_generalization' %}
+                                    <span class="badge bg-info">Date General</span>
+                                    {% elif rule.rule_type == 'phone_mask' %}
+                                    <span class="badge bg-warning">Phone</span>
+                                    {% elif rule.rule_type == 'email_mask' %}
+                                    <span class="badge bg-warning">Email</span>
+                                    {% elif rule.rule_type == 'text_redaction' %}
+                                    <span class="badge bg-danger">Text Redaction</span>
+                                    {% elif rule.rule_type == 'fixed_value' %}
+                                    <span class="badge bg-secondary">Fixed Value</span>
+                                    {% elif rule.rule_type == 'hash' %}
+                                    <span class="badge bg-dark">Hash</span>
+                                    {% elif rule.rule_type == 'random_value' %}
+                                    <span class="badge bg-success">Random</span>
+                                    {% elif rule.rule_type == 'zipcode_truncate' %}
+                                    <span class="badge bg-warning">ZIP Code</span>
+                                    {% else %}
+                                    <span class="badge bg-light">{{ rule.rule_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ rule.description }}</td>
+                                <td>
+                                    {% set config = rule.get_config() %}
+                                    {% if config.tables|length > 2 %}
+                                    {{ config.tables[0] }}, {{ config.tables[1] }}...
+                                    {% else %}
+                                    {{ config.tables|join(', ') }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if config.columns|length > 2 %}
+                                    {{ config.columns[0] }}, {{ config.columns[1] }}...
+                                    {% else %}
+                                    {{ config.columns|join(', ') }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('edit_rule', rule_id=rule.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit me-1"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteRuleModal{{ rule.id }}">
+                                            <i class="fas fa-trash me-1"></i> Delete
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Modal -->
+                                    <div class="modal fade" id="deleteRuleModal{{ rule.id }}" tabindex="-1" aria-labelledby="deleteRuleModalLabel{{ rule.id }}" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteRuleModalLabel{{ rule.id }}">Confirm Deletion</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete the rule "{{ rule.name }}"?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form action="{{ url_for('delete_rule', rule_id=rule.id) }}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No de-identification rules configured yet. <a href="{{ url_for('add_rule') }}" class="alert-link">Add your first rule</a>.
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Show appropriate configuration section based on rule type
+        function showRuleConfig() {
+            // Hide all rule config sections
+            $('.rule-config').hide();
+            
+            // Show the appropriate section
+            var ruleType = $('#rule_type').val();
+            if (ruleType) {
+                $('#' + ruleType + '_config').show();
+            }
+        }
+        
+        // Set up event handler for rule type change
+        $('#rule_type').change(showRuleConfig);
+        
+        // Initial setup
+        showRuleConfig();
+    });
+</script>
+{% endblock %}

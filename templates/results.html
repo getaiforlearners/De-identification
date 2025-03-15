@@ -1,0 +1,204 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>De-identification Results</h4>
+                <a href="{{ url_for('process') }}" class="btn btn-primary">
+                    <i class="fas fa-cogs me-1"></i> New Process
+                </a>
+            </div>
+            <div class="card-body">
+                <!-- Process Summary -->
+                <div class="alert alert-{% if process.status == 'completed' %}success{% elif process.status == 'running' %}primary{% else %}danger{% endif %}">
+                    <h5>
+                        <i class="fas fa-{% if process.status == 'completed' %}check-circle{% elif process.status == 'running' %}spinner fa-pulse{% else %}exclamation-circle{% endif %} me-2"></i>
+                        Process: {{ process.process_name }}
+                    </h5>
+                    <div>
+                        <strong>Status:</strong> 
+                        {% if process.status == 'completed' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% elif process.status == 'running' %}
+                        <span class="badge bg-primary">Running</span>
+                        {% else %}
+                        <span class="badge bg-danger">Failed</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Started:</strong> {{ process.start_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                    {% if process.end_time %}
+                    <div>
+                        <strong>Ended:</strong> {{ process.end_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                    <div>
+                        <strong>Duration:</strong> {{ (process.end_time - process.start_time).total_seconds() }} seconds
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if process.status == 'completed' %}
+                <!-- Results Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3>Records Processed</h3>
+                            <p>{{ process.records_processed }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3>Records Modified</h3>
+                            <p>{{ process.records_modified }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3>Tables Processed</h3>
+                            <p>{{ log_data.tables_processed }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modification Rate -->
+                <div class="mb-4">
+                    <h5>Modification Rate</h5>
+                    <div class="progress">
+                        {% set mod_rate = (process.records_modified / process.records_processed * 100) if process.records_processed > 0 else 0 %}
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ mod_rate }}%;" 
+                             aria-valuenow="{{ mod_rate }}" aria-valuemin="0" aria-valuemax="100">
+                            {{ mod_rate|round(1) }}%
+                        </div>
+                    </div>
+                    <div class="text-muted small">
+                        {{ process.records_modified }} out of {{ process.records_processed }} records were modified
+                    </div>
+                </div>
+                
+                {% if log_data.fields_modified %}
+                <!-- Field Modifications -->
+                <div class="mb-4">
+                    <h5>Field Modifications</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Values Modified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for field, count in log_data.fields_modified.items() %}
+                                <tr>
+                                    <td>{{ field }}</td>
+                                    <td>{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Download Report -->
+                <div class="mb-4">
+                    <h5>Export Results</h5>
+                    <div class="alert alert-light border">
+                        <p>
+                            <i class="fas fa-file-csv me-2"></i>
+                            A detailed report of this de-identification process has been saved in the reports directory.
+                        </p>
+                        <a href="#" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-1"></i> Download Report
+                        </a>
+                        <small class="d-block mt-2 text-muted">Note: In this web version, report download is simulated.</small>
+                    </div>
+                </div>
+                
+                {% elif process.status == 'failed' %}
+                <!-- Error Information -->
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Process Failed</h5>
+                    <p>The de-identification process encountered an error:</p>
+                    {% if log_data.error %}
+                    <pre class="bg-dark text-white p-3 rounded">{{ log_data.error }}</pre>
+                    {% else %}
+                    <p>No detailed error information available.</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <!-- Processing -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-3">De-identification process is still running...</p>
+                    <p class="text-muted">This page will refresh automatically in 10 seconds.</p>
+                </div>
+                <script>
+                    // Auto-refresh the page if process is still running
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 10000);
+                </script>
+                {% endif %}
+                
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        <i class="fas fa-home me-1"></i> Back to Dashboard
+                    </a>
+                    {% if process.status == 'completed' %}
+                    <a href="{{ url_for('process') }}" class="btn btn-primary">
+                        <i class="fas fa-redo me-1"></i> Run Another Process
+                    </a>
+                    {% elif process.status == 'failed' %}
+                    <a href="{{ url_for('process') }}" class="btn btn-primary">
+                        <i class="fas fa-redo me-1"></i> Try Again
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if process.status == 'completed' %}
+        // Create chart for completed process
+        const ctx = document.getElementById('processing-chart');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Modified', 'Unchanged'],
+                    datasets: [{
+                        data: [
+                            {{ process.records_modified }}, 
+                            {{ process.records_processed - process.records_modified }}
+                        ],
+                        backgroundColor: ['#0d6efd', '#6c757d']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

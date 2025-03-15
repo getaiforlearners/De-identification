@@ -1,0 +1,964 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 mb-4">
+            <i class="fas fa-shield-alt me-2"></i>
+            Master Reference Tables
+        </h1>
+        <p class="text-muted">
+            Manage mapping tables for patient IDs, encounter IDs, and PHI attributes.
+            These tables serve as the master reference for all de-identification processes.
+        </p>
+    </div>
+</div>
+
+<!-- Tabs for different master tables -->
+<ul class="nav nav-tabs" id="masterTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="patient-tab" data-bs-toggle="tab" data-bs-target="#patient" type="button" role="tab" aria-controls="patient" aria-selected="true">
+            <i class="fas fa-user-shield me-1"></i> Patient ID Mapping
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="encounter-tab" data-bs-toggle="tab" data-bs-target="#encounter" type="button" role="tab" aria-controls="encounter" aria-selected="false">
+            <i class="fas fa-file-medical-alt me-1"></i> Encounter ID Mapping
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="phi-tab" data-bs-toggle="tab" data-bs-target="#phi" type="button" role="tab" aria-controls="phi" aria-selected="false">
+            <i class="fas fa-user-lock me-1"></i> PHI Attributes
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content p-3 border border-top-0 rounded-bottom" id="masterTabsContent">
+    <!-- Patient ID Mapping Tab -->
+    <div class="tab-pane fade show active" id="patient" role="tabpanel" aria-labelledby="patient-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Patient ID Mapping</h3>
+            <div>
+                <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#dynamicPatientModal">
+                    <i class="fas fa-table me-1"></i> Map From Table
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+                    <i class="fas fa-plus me-1"></i> Add Manually
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Original Patient ID</th>
+                        <th>De-identified ID</th>
+                        <th>Date Offset (days)</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in patient_masters %}
+                    <tr>
+                        <td>{{ patient.original_patient_id }}</td>
+                        <td>{{ patient.deidentified_id }}</td>
+                        <td>{{ patient.date_offset }}</td>
+                        <td>{{ patient.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-info me-1" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editPatientModal{{ patient.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deletePatientModal{{ patient.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not patient_masters %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            No patient ID mappings found. Use the "Map From Table" or "Add Manually" buttons to create mappings.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Encounter ID Mapping Tab -->
+    <div class="tab-pane fade" id="encounter" role="tabpanel" aria-labelledby="encounter-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Encounter ID Mapping</h3>
+            <div>
+                <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#dynamicEncounterModal"
+                        {% if not patient_masters %}disabled{% endif %}>
+                    <i class="fas fa-table me-1"></i> Map From Table
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEncounterModal"
+                        {% if not patient_masters %}disabled{% endif %}>
+                    <i class="fas fa-plus me-1"></i> Add Manually
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Original Encounter ID</th>
+                        <th>De-identified ID</th>
+                        <th>Patient</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for encounter in encounter_masters %}
+                    <tr>
+                        <td>{{ encounter.original_encounter_id }}</td>
+                        <td>{{ encounter.deidentified_id }}</td>
+                        <td>{{ encounter.patient.deidentified_id }}</td>
+                        <td>{{ encounter.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-info me-1" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editEncounterModal{{ encounter.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteEncounterModal{{ encounter.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not encounter_masters %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            No encounter ID mappings found. 
+            {% if not patient_masters %}
+            You need to create a patient ID mapping first.
+            {% else %}
+            Use the "Map From Table" or "Add Manually" buttons to create mappings.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- PHI Attributes Tab -->
+    <div class="tab-pane fade" id="phi" role="tabpanel" aria-labelledby="phi-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>PHI Attributes</h3>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPhiModal"
+                    {% if not patient_masters %}disabled{% endif %}>
+                <i class="fas fa-plus me-1"></i> Add PHI Attribute
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Patient</th>
+                        <th>Attribute</th>
+                        <th>Original Value</th>
+                        <th>De-identified Value</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for phi in phi_masters %}
+                    <tr>
+                        <td>{{ phi.patient.deidentified_id }}</td>
+                        <td>{{ phi.attribute_name }}</td>
+                        <td>{{ phi.original_value }}</td>
+                        <td>{{ phi.deidentified_value }}</td>
+                        <td>{{ phi.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-info me-1" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editPhiModal{{ phi.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deletePhiModal{{ phi.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not phi_masters %}
+        <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            No PHI attributes found. 
+            {% if not patient_masters %}
+            You need to create a patient ID mapping first.
+            {% else %}
+            Use the "Add PHI Attribute" button to create one.
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal fade" id="addPatientModal" tabindex="-1" aria-labelledby="addPatientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPatientModalLabel">Add Patient ID Mapping</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_patient_master') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="original_patient_id" class="form-label">Original Patient ID</label>
+                        <input type="text" class="form-control" id="original_patient_id" name="original_patient_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deidentified_id" class="form-label">De-identified ID (after SW)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">SW</span>
+                            <input type="text" class="form-control" id="deidentified_id" name="deidentified_id" 
+                                   pattern="[0-9]{7}" placeholder="0000001" 
+                                   title="7-digit number" required>
+                        </div>
+                        <div class="form-text">Enter a 7-digit number (e.g., 0000001)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date_offset" class="form-label">Date Offset (days)</label>
+                        <input type="number" class="form-control" id="date_offset" name="date_offset" 
+                               min="-32" max="32" value="0" required>
+                        <div class="form-text">Number of days to offset dates (-32 to +32)</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Encounter Modal -->
+<div class="modal fade" id="addEncounterModal" tabindex="-1" aria-labelledby="addEncounterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addEncounterModalLabel">Add Encounter ID Mapping</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_encounter_master') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="patient_master_id" class="form-label">Patient</label>
+                        <select class="form-select" id="patient_master_id" name="patient_master_id" required>
+                            <option value="" selected disabled>Select a patient</option>
+                            {% for patient in patient_masters %}
+                            <option value="{{ patient.id }}">{{ patient.deidentified_id }} (Original: {{ patient.original_patient_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="original_encounter_id" class="form-label">Original Encounter ID</label>
+                        <input type="text" class="form-control" id="original_encounter_id" name="original_encounter_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deidentified_id" class="form-label">De-identified ID (after SW)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">SW</span>
+                            <input type="text" class="form-control" id="deidentified_id" name="deidentified_id" 
+                                   pattern="[0-9]{10}" placeholder="0000010001" 
+                                   title="10-digit number" required>
+                        </div>
+                        <div class="form-text">Enter a 10-digit number (e.g., 0000010001)</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Encounter Mapping Modal -->
+<div class="modal fade" id="dynamicEncounterModal" tabindex="-1" aria-labelledby="dynamicEncounterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dynamicEncounterModalLabel">Map Encounter IDs from Database Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_encounter_master') }}" method="post">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        This will create encounter ID mappings by extracting all IDs from a database table.
+                        Each ID will be assigned a unique SW-prefixed ID and linked to a patient.
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label for="patient_master_id_dynamic" class="form-label">Link to Patient</label>
+                        <select class="form-select" id="patient_master_id_dynamic" name="patient_master_id" required>
+                            <option value="" selected disabled>Select a patient</option>
+                            {% for patient in patient_masters %}
+                            <option value="{{ patient.id }}">{{ patient.deidentified_id }} (Original: {{ patient.original_patient_id }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">All encounters will be linked to this patient</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="enc_db_connection_id" class="form-label">Database Connection</label>
+                        <select class="form-select" id="enc_db_connection_id" name="db_connection_id" required>
+                            <option value="" selected disabled>Select a connection</option>
+                            {% for conn in connections %}
+                            <option value="{{ conn.id }}">{{ conn.name }} ({{ conn.db_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="enc_table_name" class="form-label">Table</label>
+                        <select class="form-select" id="enc_table_name" name="table_name" disabled required>
+                            <option value="" selected disabled>Select a table</option>
+                        </select>
+                        <div class="form-text">Select a database connection first</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="enc_id_column" class="form-label">ID Column</label>
+                        <select class="form-select" id="enc_id_column" name="id_column" disabled required>
+                            <option value="" selected disabled>Select a column</option>
+                        </select>
+                        <div class="form-text">Select a table first</div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Encounter IDs will be mapped to <strong>SW0000010001</strong> format automatically.
+                        All encounters will be linked to the selected patient.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success" id="createEncMappingsBtn" disabled>
+                        <i class="fas fa-magic me-1"></i> Create Mappings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Patient Mapping Modal -->
+<div class="modal fade" id="dynamicPatientModal" tabindex="-1" aria-labelledby="dynamicPatientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dynamicPatientModalLabel">Map Patient IDs from Database Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_patient_master') }}" method="post">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        This will create patient ID mappings by extracting all IDs from a database table. 
+                        Each ID will be assigned a unique SW-prefixed ID and a random date offset.
+                    </p>
+                    
+                    <div class="mb-3">
+                        <label for="db_connection_id" class="form-label">Database Connection</label>
+                        <select class="form-select" id="db_connection_id" name="db_connection_id" required>
+                            <option value="" selected disabled>Select a connection</option>
+                            {% for conn in connections %}
+                            <option value="{{ conn.id }}">{{ conn.name }} ({{ conn.db_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="table_name" class="form-label">Table</label>
+                        <select class="form-select" id="table_name" name="table_name" disabled required>
+                            <option value="" selected disabled>Select a table</option>
+                        </select>
+                        <div class="form-text">Select a database connection first</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_column" class="form-label">ID Column</label>
+                        <select class="form-select" id="id_column" name="id_column" disabled required>
+                            <option value="" selected disabled>Select a column</option>
+                        </select>
+                        <div class="form-text">Select a table first</div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Patient IDs will be mapped to <strong>SW0000001</strong> format automatically.
+                        Each patient will be assigned a random date offset between -32 and +32 days.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success" id="createMappingsBtn" disabled>
+                        <i class="fas fa-magic me-1"></i> Create Mappings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add PHI Modal -->
+<div class="modal fade" id="addPhiModal" tabindex="-1" aria-labelledby="addPhiModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPhiModalLabel">Add PHI Attribute</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_phi_master') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="patient_master_id" class="form-label">Patient</label>
+                        <select class="form-select" id="patient_master_id" name="patient_master_id" required>
+                            <option value="" selected disabled>Select a patient</option>
+                            {% for patient in patient_masters %}
+                            <option value="{{ patient.id }}">{{ patient.deidentified_id }} (Original: {{ patient.original_patient_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="attribute_name" class="form-label">Attribute Type</label>
+                        <select class="form-select" id="attribute_name" name="attribute_name" required>
+                            <option value="" selected disabled>Select attribute type</option>
+                            <option value="SSN">Social Security Number</option>
+                            <option value="PHONE">Phone Number</option>
+                            <option value="EMAIL">Email Address</option>
+                            <option value="ADDRESS">Street Address</option>
+                            <option value="ZIPCODE">ZIP Code</option>
+                            <option value="DOB">Date of Birth</option>
+                            <option value="CUSTOM">Custom (specify below)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 custom-attribute-div" style="display: none;">
+                        <label for="custom_attribute" class="form-label">Custom Attribute Name</label>
+                        <input type="text" class="form-control" id="custom_attribute" name="custom_attribute">
+                    </div>
+                    <div class="mb-3">
+                        <label for="original_value" class="form-label">Original Value</label>
+                        <input type="text" class="form-control" id="original_value" name="original_value" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deidentified_value" class="form-label">De-identified Value</label>
+                        <input type="text" class="form-control" id="deidentified_value" name="deidentified_value" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit/Delete Modals for Patient records -->
+{% for patient in patient_masters %}
+    <!-- Edit Patient Modal -->
+    <div class="modal fade" id="editPatientModal{{ patient.id }}" tabindex="-1" aria-labelledby="editPatientModalLabel{{ patient.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editPatientModalLabel{{ patient.id }}">Edit Patient ID Mapping</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('edit_patient_master', patient_id=patient.id) }}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="original_patient_id{{ patient.id }}" class="form-label">Original Patient ID</label>
+                            <input type="text" class="form-control" id="original_patient_id{{ patient.id }}" name="original_patient_id" value="{{ patient.original_patient_id }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deidentified_id{{ patient.id }}" class="form-label">De-identified ID (after SW)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">SW</span>
+                                <input type="text" class="form-control" id="deidentified_id{{ patient.id }}" name="deidentified_id" 
+                                       value="{{ patient.deidentified_id[2:] }}" 
+                                       pattern="[0-9]{7}" 
+                                       title="7-digit number" required>
+                            </div>
+                            <div class="form-text">Enter a 7-digit number (e.g., 0000001)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="date_offset{{ patient.id }}" class="form-label">Date Offset (days)</label>
+                            <input type="number" class="form-control" id="date_offset{{ patient.id }}" name="date_offset" 
+                                   min="-32" max="32" value="{{ patient.date_offset }}" required>
+                            <div class="form-text">Number of days to offset dates (-32 to +32)</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Patient Modal -->
+    <div class="modal fade" id="deletePatientModal{{ patient.id }}" tabindex="-1" aria-labelledby="deletePatientModalLabel{{ patient.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletePatientModalLabel{{ patient.id }}">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the patient mapping for <strong>{{ patient.original_patient_id }}</strong> (De-identified as {{ patient.deidentified_id }})?</p>
+                    <p class="text-danger">This action cannot be undone. All dependent encounters and PHI attributes will be orphaned.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('delete_patient_master', patient_id=patient.id) }}" method="post">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Edit/Delete Modals for Encounter records -->
+{% for encounter in encounter_masters %}
+    <!-- Edit Encounter Modal -->
+    <div class="modal fade" id="editEncounterModal{{ encounter.id }}" tabindex="-1" aria-labelledby="editEncounterModalLabel{{ encounter.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editEncounterModalLabel{{ encounter.id }}">Edit Encounter ID Mapping</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('edit_encounter_master', encounter_id=encounter.id) }}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="patient_master_id{{ encounter.id }}" class="form-label">Patient</label>
+                            <select class="form-select" id="patient_master_id{{ encounter.id }}" name="patient_master_id" required>
+                                {% for patient in patient_masters %}
+                                <option value="{{ patient.id }}" {% if patient.id == encounter.patient_master_id %}selected{% endif %}>
+                                    {{ patient.deidentified_id }} (Original: {{ patient.original_patient_id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="original_encounter_id{{ encounter.id }}" class="form-label">Original Encounter ID</label>
+                            <input type="text" class="form-control" id="original_encounter_id{{ encounter.id }}" name="original_encounter_id" value="{{ encounter.original_encounter_id }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deidentified_id{{ encounter.id }}" class="form-label">De-identified ID (after SW)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">SW</span>
+                                <input type="text" class="form-control" id="deidentified_id{{ encounter.id }}" name="deidentified_id" 
+                                       value="{{ encounter.deidentified_id[2:] }}" 
+                                       pattern="[0-9]{10}" 
+                                       title="10-digit number" required>
+                            </div>
+                            <div class="form-text">Enter a 10-digit number (e.g., 0000010001)</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Encounter Modal -->
+    <div class="modal fade" id="deleteEncounterModal{{ encounter.id }}" tabindex="-1" aria-labelledby="deleteEncounterModalLabel{{ encounter.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteEncounterModalLabel{{ encounter.id }}">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the encounter mapping for <strong>{{ encounter.original_encounter_id }}</strong> (De-identified as {{ encounter.deidentified_id }})?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('delete_encounter_master', encounter_id=encounter.id) }}" method="post">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Edit/Delete Modals for PHI records -->
+{% for phi in phi_masters %}
+    <!-- Edit PHI Modal -->
+    <div class="modal fade" id="editPhiModal{{ phi.id }}" tabindex="-1" aria-labelledby="editPhiModalLabel{{ phi.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editPhiModalLabel{{ phi.id }}">Edit PHI Attribute</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('edit_phi_master', phi_id=phi.id) }}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="patient_master_id{{ phi.id }}" class="form-label">Patient</label>
+                            <select class="form-select" id="patient_master_id{{ phi.id }}" name="patient_master_id" required>
+                                {% for patient in patient_masters %}
+                                <option value="{{ patient.id }}" {% if patient.id == phi.patient_master_id %}selected{% endif %}>
+                                    {{ patient.deidentified_id }} (Original: {{ patient.original_patient_id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attribute_name{{ phi.id }}" class="form-label">Attribute Type</label>
+                            <select class="form-select edit-attribute-select" id="attribute_name{{ phi.id }}" name="attribute_name" 
+                                    data-phi-id="{{ phi.id }}" required>
+                                <option value="SSN" {% if phi.attribute_name == 'SSN' %}selected{% endif %}>Social Security Number</option>
+                                <option value="PHONE" {% if phi.attribute_name == 'PHONE' %}selected{% endif %}>Phone Number</option>
+                                <option value="EMAIL" {% if phi.attribute_name == 'EMAIL' %}selected{% endif %}>Email Address</option>
+                                <option value="ADDRESS" {% if phi.attribute_name == 'ADDRESS' %}selected{% endif %}>Street Address</option>
+                                <option value="ZIPCODE" {% if phi.attribute_name == 'ZIPCODE' %}selected{% endif %}>ZIP Code</option>
+                                <option value="DOB" {% if phi.attribute_name == 'DOB' %}selected{% endif %}>Date of Birth</option>
+                                <option value="CUSTOM" 
+                                        {% if phi.attribute_name not in ['SSN', 'PHONE', 'EMAIL', 'ADDRESS', 'ZIPCODE', 'DOB'] %}
+                                            selected
+                                        {% endif %}>
+                                    Custom
+                                </option>
+                            </select>
+                        </div>
+                        <div class="mb-3 edit-custom-attribute-div{{ phi.id }}" 
+                             style="display: {% if phi.attribute_name not in ['SSN', 'PHONE', 'EMAIL', 'ADDRESS', 'ZIPCODE', 'DOB'] %}block{% else %}none{% endif %};">
+                            <label for="custom_attribute{{ phi.id }}" class="form-label">Custom Attribute Name</label>
+                            <input type="text" class="form-control" id="custom_attribute{{ phi.id }}" name="custom_attribute" 
+                                   value="{% if phi.attribute_name not in ['SSN', 'PHONE', 'EMAIL', 'ADDRESS', 'ZIPCODE', 'DOB'] %}{{ phi.attribute_name }}{% endif %}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="original_value{{ phi.id }}" class="form-label">Original Value</label>
+                            <input type="text" class="form-control" id="original_value{{ phi.id }}" name="original_value" value="{{ phi.original_value }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deidentified_value{{ phi.id }}" class="form-label">De-identified Value</label>
+                            <input type="text" class="form-control" id="deidentified_value{{ phi.id }}" name="deidentified_value" value="{{ phi.deidentified_value }}" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete PHI Modal -->
+    <div class="modal fade" id="deletePhiModal{{ phi.id }}" tabindex="-1" aria-labelledby="deletePhiModalLabel{{ phi.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletePhiModalLabel{{ phi.id }}">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the PHI attribute <strong>{{ phi.attribute_name }}</strong> for patient {{ phi.patient.deidentified_id }}?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('delete_phi_master', phi_id=phi.id) }}" method="post">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Dynamic Master Table functionality
+        const connectionSelect = document.getElementById('db_connection_id');
+        const tableSelect = document.getElementById('table_name');
+        const columnSelect = document.getElementById('id_column');
+        const createMappingsBtn = document.getElementById('createMappingsBtn');
+        
+        if (connectionSelect) {
+            // Handle connection selection
+            connectionSelect.addEventListener('change', function() {
+                const connId = this.value;
+                if (!connId) return;
+                
+                // Reset and disable subsequent fields
+                tableSelect.innerHTML = '<option value="" selected disabled>Loading tables...</option>';
+                tableSelect.disabled = true;
+                columnSelect.innerHTML = '<option value="" selected disabled>Select a table first</option>';
+                columnSelect.disabled = true;
+                createMappingsBtn.disabled = true;
+                
+                // Fetch tables for the selected connection
+                fetch(`/api/master/get-tables/${connId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Populate tables dropdown
+                            tableSelect.innerHTML = '<option value="" selected disabled>Select a table</option>';
+                            data.tables.forEach(table => {
+                                const option = document.createElement('option');
+                                option.value = table;
+                                option.textContent = table;
+                                tableSelect.appendChild(option);
+                            });
+                            tableSelect.disabled = false;
+                        } else {
+                            tableSelect.innerHTML = '<option value="" selected disabled>Error loading tables</option>';
+                            console.error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        tableSelect.innerHTML = '<option value="" selected disabled>Error loading tables</option>';
+                        console.error('Error:', error);
+                    });
+            });
+            
+            // Handle table selection
+            tableSelect.addEventListener('change', function() {
+                const tableName = this.value;
+                const connId = connectionSelect.value;
+                if (!tableName || !connId) return;
+                
+                // Reset and disable column select
+                columnSelect.innerHTML = '<option value="" selected disabled>Loading columns...</option>';
+                columnSelect.disabled = true;
+                createMappingsBtn.disabled = true;
+                
+                // Fetch columns for the selected table
+                fetch(`/api/master/get-columns/${connId}/${tableName}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Populate columns dropdown
+                            columnSelect.innerHTML = '<option value="" selected disabled>Select an ID column</option>';
+                            data.columns.forEach(column => {
+                                // Create an option for each column
+                                const option = document.createElement('option');
+                                option.value = column.name;
+                                
+                                // Format the display text
+                                let displayText = column.name;
+                                if (column.isPrimary) {
+                                    displayText += ' (Primary Key)';
+                                }
+                                displayText += ` - ${column.type}`;
+                                
+                                option.textContent = displayText;
+                                columnSelect.appendChild(option);
+                                
+                                // Auto-select columns that look like IDs
+                                if (column.isPrimary || 
+                                    column.name.toLowerCase().includes('id') || 
+                                    column.name.toLowerCase().includes('key')) {
+                                    option.selected = true;
+                                }
+                            });
+                            columnSelect.disabled = false;
+                            
+                            // Enable the create button if we have columns
+                            if (data.columns.length > 0) {
+                                createMappingsBtn.disabled = false;
+                            }
+                        } else {
+                            columnSelect.innerHTML = '<option value="" selected disabled>Error loading columns</option>';
+                            console.error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        columnSelect.innerHTML = '<option value="" selected disabled>Error loading columns</option>';
+                        console.error('Error:', error);
+                    });
+            });
+            
+            // Enable create button when column is selected
+            columnSelect.addEventListener('change', function() {
+                createMappingsBtn.disabled = !this.value;
+            });
+        }
+        
+        // Dynamic Encounter Table functionality
+        const encConnectionSelect = document.getElementById('enc_db_connection_id');
+        const encTableSelect = document.getElementById('enc_table_name');
+        const encColumnSelect = document.getElementById('enc_id_column');
+        const createEncMappingsBtn = document.getElementById('createEncMappingsBtn');
+        
+        if (encConnectionSelect) {
+            // Handle connection selection
+            encConnectionSelect.addEventListener('change', function() {
+                const connId = this.value;
+                if (!connId) return;
+                
+                // Reset and disable subsequent fields
+                encTableSelect.innerHTML = '<option value="" selected disabled>Loading tables...</option>';
+                encTableSelect.disabled = true;
+                encColumnSelect.innerHTML = '<option value="" selected disabled>Select a table first</option>';
+                encColumnSelect.disabled = true;
+                createEncMappingsBtn.disabled = true;
+                
+                // Fetch tables for the selected connection
+                fetch(`/api/master/get-tables/${connId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Populate tables dropdown
+                            encTableSelect.innerHTML = '<option value="" selected disabled>Select a table</option>';
+                            data.tables.forEach(table => {
+                                const option = document.createElement('option');
+                                option.value = table;
+                                option.textContent = table;
+                                encTableSelect.appendChild(option);
+                            });
+                            encTableSelect.disabled = false;
+                        } else {
+                            encTableSelect.innerHTML = '<option value="" selected disabled>Error loading tables</option>';
+                            console.error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        encTableSelect.innerHTML = '<option value="" selected disabled>Error loading tables</option>';
+                        console.error('Error:', error);
+                    });
+            });
+            
+            // Handle table selection
+            encTableSelect.addEventListener('change', function() {
+                const tableName = this.value;
+                const connId = encConnectionSelect.value;
+                if (!tableName || !connId) return;
+                
+                // Reset and disable column select
+                encColumnSelect.innerHTML = '<option value="" selected disabled>Loading columns...</option>';
+                encColumnSelect.disabled = true;
+                createEncMappingsBtn.disabled = true;
+                
+                // Fetch columns for the selected table
+                fetch(`/api/master/get-columns/${connId}/${tableName}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Populate columns dropdown
+                            encColumnSelect.innerHTML = '<option value="" selected disabled>Select an ID column</option>';
+                            data.columns.forEach(column => {
+                                // Create an option for each column
+                                const option = document.createElement('option');
+                                option.value = column.name;
+                                
+                                // Format the display text
+                                let displayText = column.name;
+                                if (column.isPrimary) {
+                                    displayText += ' (Primary Key)';
+                                }
+                                displayText += ` - ${column.type}`;
+                                
+                                option.textContent = displayText;
+                                encColumnSelect.appendChild(option);
+                                
+                                // Auto-select columns that look like IDs
+                                if (column.isPrimary || 
+                                    column.name.toLowerCase().includes('encounter') || 
+                                    column.name.toLowerCase().includes('visit') || 
+                                    column.name.toLowerCase().includes('id')) {
+                                    option.selected = true;
+                                }
+                            });
+                            encColumnSelect.disabled = false;
+                            
+                            // Enable the create button if we have columns
+                            if (data.columns.length > 0) {
+                                createEncMappingsBtn.disabled = false;
+                            }
+                        } else {
+                            encColumnSelect.innerHTML = '<option value="" selected disabled>Error loading columns</option>';
+                            console.error(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        encColumnSelect.innerHTML = '<option value="" selected disabled>Error loading columns</option>';
+                        console.error('Error:', error);
+                    });
+            });
+            
+            // Enable create button when column is selected
+            encColumnSelect.addEventListener('change', function() {
+                createEncMappingsBtn.disabled = !this.value;
+            });
+        }
+        
+        // Handle custom attribute field for add form
+        const attributeSelect = document.getElementById('attribute_name');
+        const customAttributeDiv = document.querySelector('.custom-attribute-div');
+        
+        if (attributeSelect) {
+            attributeSelect.addEventListener('change', function() {
+                if (this.value === 'CUSTOM') {
+                    customAttributeDiv.style.display = 'block';
+                    document.getElementById('custom_attribute').setAttribute('required', 'required');
+                } else {
+                    customAttributeDiv.style.display = 'none';
+                    document.getElementById('custom_attribute').removeAttribute('required');
+                }
+            });
+        }
+
+        // Handle custom attribute fields for edit forms
+        const editAttributeSelects = document.querySelectorAll('.edit-attribute-select');
+        
+        editAttributeSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                const phiId = this.getAttribute('data-phi-id');
+                const customAttributeDiv = document.querySelector(`.edit-custom-attribute-div${phiId}`);
+                const customAttributeInput = document.getElementById(`custom_attribute${phiId}`);
+                
+                if (this.value === 'CUSTOM') {
+                    customAttributeDiv.style.display = 'block';
+                    customAttributeInput.setAttribute('required', 'required');
+                } else {
+                    customAttributeDiv.style.display = 'none';
+                    customAttributeInput.removeAttribute('required');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

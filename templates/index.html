@@ -1,0 +1,134 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Healthcare Data De-identification Dashboard</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    This tool allows you to de-identify healthcare data according to configurable rules, helping you comply with privacy regulations while preserving data utility.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Database Connections -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-database me-2"></i>Connections</h5>
+            </div>
+            <div class="card-body text-center">
+                <h1 class="display-4">{{ conn_count }}</h1>
+                <p>Database Connections</p>
+                <a href="{{ url_for('connections') }}" class="btn btn-primary">Manage Connections</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- De-identification Rules -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-key me-2"></i>Rules</h5>
+            </div>
+            <div class="card-body text-center">
+                <h1 class="display-4">{{ rule_count }}</h1>
+                <p>De-identification Rules</p>
+                <a href="{{ url_for('rules') }}" class="btn btn-primary">Manage Rules</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mapping Tables -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Mappings</h5>
+            </div>
+            <div class="card-body text-center">
+                <h1 class="display-4">{{ mapping_count }}</h1>
+                <p>Table Mappings</p>
+                <a href="{{ url_for('mappings') }}" class="btn btn-primary">Manage Mappings</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Process Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>De-identification Process</h5>
+                <a href="{{ url_for('process') }}" class="btn btn-success">Start New Process</a>
+            </div>
+            <div class="card-body">
+                <p>Configure and run the de-identification process on your healthcare data.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Process Logs -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Processes</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Process Name</th>
+                                <th>Start Time</th>
+                                <th>Status</th>
+                                <th>Records Processed</th>
+                                <th>Records Modified</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.process_name }}</td>
+                                <td>{{ log.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>
+                                    {% if log.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                    {% elif log.status == 'running' %}
+                                    <span class="badge bg-primary">Running</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.records_processed }}</td>
+                                <td>{{ log.records_modified }}</td>
+                                <td>
+                                    <a href="{{ url_for('results', process_id=log.id) }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye me-1"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No processes have been run yet. <a href="{{ url_for('process') }}" class="alert-link">Start a new process</a>.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

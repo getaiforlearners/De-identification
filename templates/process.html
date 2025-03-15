@@ -1,0 +1,246 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>De-identification Process</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    Configure and execute the de-identification process on your healthcare data.
+                </p>
+                
+                <form id="process-form" method="post" action="{{ url_for('execute_process') }}">
+                    <!-- Process Name -->
+                    <div class="mb-4 config-section">
+                        <h5><i class="fas fa-tag me-2"></i>Process Configuration</h5>
+                        <div class="mb-3">
+                            <label for="process_name" class="form-label">Process Name</label>
+                            <input type="text" class="form-control" id="process_name" name="process_name" 
+                                   placeholder="De-identification Process" value="De-identification Process" required>
+                            <div class="form-text">A name to identify this de-identification process</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Database Connections -->
+                    <div class="mb-4 config-section">
+                        <h5><i class="fas fa-database me-2"></i>Database Connections</h5>
+                        
+                        <div class="row">
+                            <!-- Source Database -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-server me-2"></i>Source Database</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="source_connection_id" class="form-label">Select Source Connection</label>
+                                            <select class="form-select" id="source_connection_id" name="source_connection_id" required>
+                                                <option value="">Select source connection</option>
+                                                {% for conn in connections %}
+                                                <option value="{{ conn.id }}">{{ conn.name }} ({{ conn.db_type }} - {{ conn.host }})</option>
+                                                {% endfor %}
+                                            </select>
+                                            {% if not connections %}
+                                            <div class="form-text text-warning">
+                                                No database connections configured. <a href="{{ url_for('add_connection') }}">Add a connection first</a>.
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Destination Database -->
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-database me-2"></i>Destination Database</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="destination_connection_id" class="form-label">Select Destination Connection</label>
+                                            <select class="form-select" id="destination_connection_id" name="destination_connection_id" required>
+                                                <option value="">Select destination connection</option>
+                                                {% for conn in connections %}
+                                                <option value="{{ conn.id }}" {% if conn.is_destination %}selected{% endif %}>
+                                                    {{ conn.name }} ({{ conn.db_type }} - {{ conn.host }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="form-text">Select the database where de-identified data will be stored.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Patient ID Transformation -->
+                    <div class="mb-4 config-section">
+                        <h5><i class="fas fa-user-shield me-2"></i>Patient ID Transformation</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Configure how patient identifiers will be transformed. This creates a master mapping table.
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="patient_table" class="form-label">Patient Table</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="patient_table" name="patient_table">
+                                        <option value="">Select table</option>
+                                    </select>
+                                    <span class="input-group-text" id="table-loading" style="display:none;">
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    </span>
+                                </div>
+                                <div class="form-text">The main table containing patient identifiers</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="patient_id_field" class="form-label">Patient ID Field</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="patient_id_field" name="patient_id_field">
+                                        <option value="">Select field</option>
+                                    </select>
+                                    <span class="input-group-text" id="field-loading" style="display:none;">
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    </span>
+                                </div>
+                                <div class="form-text">The column containing the patient identifier</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="patient_id_format" class="form-label">ID Format</label>
+                            <input type="text" class="form-control" id="patient_id_format" name="patient_id_format" 
+                                   value="SW{:07d}" placeholder="SW{:07d}">
+                            <div class="form-text">Python format string pattern (e.g., SW{:07d} produces SW0000001, SW0000002, etc.)</div>
+                        </div>
+                    </div>
+                    
+                    <!-- De-identification Rules -->
+                    <div class="mb-4 config-section">
+                        <h5><i class="fas fa-key me-2"></i>De-identification Rules</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Select the rules to apply during the de-identification process.
+                        </div>
+                        
+                        {% if rules %}
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="select-all-rules">
+                                <label class="form-check-label fw-bold" for="select-all-rules">
+                                    Select All Rules
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="rule-selection-container">
+                            {% for rule in rules %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="rule_ids" id="rule-{{ rule.id }}" value="{{ rule.id }}">
+                                <label class="form-check-label" for="rule-{{ rule.id }}">
+                                    <strong>{{ rule.name }}</strong> 
+                                    {% if rule.rule_type == 'patient_id' %}
+                                    <span class="badge bg-primary">Patient ID</span>
+                                    {% elif rule.rule_type == 'date_offset' %}
+                                    <span class="badge bg-info">Date Offset</span>
+                                    {% elif rule.rule_type == 'date_generalization' %}
+                                    <span class="badge bg-info">Date General</span>
+                                    {% elif rule.rule_type == 'phone_mask' %}
+                                    <span class="badge bg-warning">Phone</span>
+                                    {% elif rule.rule_type == 'email_mask' %}
+                                    <span class="badge bg-warning">Email</span>
+                                    {% elif rule.rule_type == 'text_redaction' %}
+                                    <span class="badge bg-danger">Text Redaction</span>
+                                    {% elif rule.rule_type == 'fixed_value' %}
+                                    <span class="badge bg-secondary">Fixed Value</span>
+                                    {% elif rule.rule_type == 'hash' %}
+                                    <span class="badge bg-dark">Hash</span>
+                                    {% elif rule.rule_type == 'random_value' %}
+                                    <span class="badge bg-success">Random</span>
+                                    {% elif rule.rule_type == 'zipcode_truncate' %}
+                                    <span class="badge bg-warning">ZIP Code</span>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">{{ rule.description }}</small>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            No de-identification rules configured. <a href="{{ url_for('add_rule') }}">Add rules first</a>.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Table Mappings -->
+                    <div class="mb-4 config-section">
+                        <h5><i class="fas fa-project-diagram me-2"></i>Table Mappings</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Select table mappings to ensure consistent de-identification across related tables.
+                        </div>
+                        
+                        {% if mappings %}
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="select-all-mappings">
+                                <label class="form-check-label fw-bold" for="select-all-mappings">
+                                    Select All Mappings
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="rule-selection-container">
+                            {% for mapping in mappings %}
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="mapping_ids" id="mapping-{{ mapping.id }}" value="{{ mapping.id }}">
+                                <label class="form-check-label" for="mapping-{{ mapping.id }}">
+                                    <strong>{{ mapping.name }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ mapping.source_table }} → {{ mapping.destination_table }} 
+                                        (join on {{ mapping.join_key }})
+                                    </small>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            No table mappings configured. <a href="{{ url_for('add_mapping') }}">Add mappings first</a> (optional).
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Execute Process -->
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-lg btn-primary">
+                            <i class="fas fa-play-circle me-2"></i> Execute De-identification Process
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Additional script for process page - specific functionality is in app.js
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set initial states of loading icons to be hidden
+        document.getElementById('table-loading').classList.add('d-none');
+        document.getElementById('field-loading').classList.add('d-none');
+    });
+</script>
+{% endblock %}
